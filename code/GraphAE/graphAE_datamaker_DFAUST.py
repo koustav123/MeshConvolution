@@ -55,8 +55,8 @@ def split_train_and_eval_and_test_data(pc_seqs, train_fn, eval_fn, test_fn):
     return train_pcs, eval_pcs, test_pcs
 
 
-pc_seqs1 = get_pc_seqs_from_DFAUST("../../../data/DFAUST/registrations_f.hdf5")
-pc_seqs2 = get_pc_seqs_from_DFAUST("../../../data/DFAUST/registrations_m.hdf5")
+pc_seqs1 = get_pc_seqs_from_DFAUST("../../data/DFAUST/registrations_f.hdf5")
+pc_seqs2 = get_pc_seqs_from_DFAUST("../../data/DFAUST/registrations_m.hdf5")
 
 pc_seqs = pc_seqs1 + pc_seqs2
 
