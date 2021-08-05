@@ -10,6 +10,7 @@ import torch.nn as nn
 import numpy as np
 from ResidueBlock import Linear, Conv1d, CPReLU
 from torch_geometric.nn import SplineConv, ChebConv, GMMConv, GATConv, FeaStConv
+import pdb
 
 zero_threshold = 1e-8
 
@@ -79,6 +80,7 @@ class Model(nn.Module):
     #in out_point_num*max_neighbor_num
     #out 2*num_edges #there should not be any change in the vertex number.
     def get_edge_index_lst_from_neighbor_id_lstlst(self, neighbor_id_lstlst, neighbor_num_lst):
+        # pdb.set_trace()
         edge_index_lst = set({})
         for i in range(len(neighbor_id_lstlst)):
             neighborhood=neighbor_id_lstlst[i]
@@ -130,7 +132,7 @@ class Model(nn.Module):
             connection_info  = np.load(self.connection_layer_fn_lst[l])
             print ("##Layer",self.connection_layer_fn_lst[l])
             out_point_num = connection_info.shape[0]
-
+            # pdb.set_trace()
             neighbor_num_lst = torch.FloatTensor(connection_info[:,0].astype(float)).cuda() #out_point_num*1
             neighbor_id_dist_lstlst = connection_info[:, 1:] #out_point_num*(max_neighbor_num*2)
             neighbor_id_lstlst = neighbor_id_dist_lstlst.reshape((out_point_num, -1,2))[:,:,0] #out_point_num*max_neighbor_num
@@ -140,6 +142,7 @@ class Model(nn.Module):
 
             pc_mask  = torch.ones(in_point_num+1).cuda()
             pc_mask[in_point_num]=0
+            # pdb.set_trace()
             neighbor_mask_lst = pc_mask[ torch.LongTensor(neighbor_id_lstlst)].contiguous() #out_pn*max_neighbor_num neighbor is 1 otherwise 0
             
             
@@ -247,6 +250,7 @@ class Model(nn.Module):
     #input_pc batch*in_pn*in_channel
     #out_pc batch*out_pn*out_channel
     def forward_one_conv_layer_batch(self, in_pc, layer_info, is_final_layer=False):
+        pdb.set_trace()
         batch = in_pc.shape[0]
         
         in_channel, out_channel, in_pn, out_pn, weight_num,  max_neighbor_num, neighbor_num_lst,neighbor_id_lstlst, conv_layer, residual_layer, residual_rate,neighbor_mask_lst, zeros_batch_outpn_outchannel=layer_info
@@ -328,7 +332,7 @@ class Model(nn.Module):
      ##in_pc batch*point_num*3
     ##out_pc batch*point_num*3 
     def forward(self, in_pc): 
-        
+        pdb.set_trace()
         #print("in_pc", in_pc.mean(1), in_pc.min(1), in_pc.max(1))
         
         out_pc = in_pc.clone()

@@ -4,6 +4,7 @@ Spyder Editor
 
 This is a temporary script file.
 """
+import pdb
 
 import torch
 import numpy as np
@@ -12,6 +13,7 @@ import graphAE_param as Param
 import graphAE_dataloader as Dataloader
 from datetime import datetime
 from plyfile import PlyData
+from tqdm import tqdm
 
             
 
@@ -22,6 +24,7 @@ def train_one_iteration(param, model, optimizer,pc_lst, epoch, iteration):
     
     #in_pc_batch =  in_pc_batch -pcs_mean_torch
     #start=datetime.now()
+    pdb.set_trace()
     out_pc_batch = model(in_pc_batch)
     
     #in_pc_batch=in_pc_batch+pcs_mean_torch
@@ -52,8 +55,8 @@ def train_one_iteration(param, model, optimizer,pc_lst, epoch, iteration):
     #print ("model optimize time" , datetime.now()-start)
     total_iteration = epoch*param.iter_per_epoch + iteration
     if(iteration%100 == 0):
-        print ("###Epoch", epoch, "Iteration", iteration, total_iteration)
-        print ("loss_pose:", loss_pose.item())
+        # print ("###Epoch", epoch, "Iteration", iteration, total_iteration)
+        # print ("loss_pose:", loss_pose.item())
 
         
         """
@@ -65,10 +68,10 @@ def train_one_iteration(param, model, optimizer,pc_lst, epoch, iteration):
             print ("w_w_weight_l2:", w_w_weights)
         print ("rate_nonzero_w_weights:", rate_nonzero_w_weights)
         """
-        print ("loss:", loss.item())
-        print ("lr:")
-        for param_group in optimizer.param_groups:
-            print(param_group['lr'])
+        # print ("loss:", loss.item())
+        # print ("lr:")
+        # for param_group in optimizer.param_groups:
+            # print(param_group['lr'])
         
     if(iteration%10 == 0): 
         param.logger.add_scalars('Train_without_weight', {'Loss_pose': loss_pose.item()},total_iteration)
@@ -86,8 +89,13 @@ def evaluate(param, model, pc_lst,epoch,template_plydata, suffix, log_eval=True)
     geo_error_sum = 0
     pc_num = len(pc_lst)
     n = 0
+    pbar_epoch = tqdm(total=pc_num, position=1, leave=False, unit=' batches')
+    pbar_epoch.set_description('Evaluating ')
+    # counter=0
 
     while (n<(pc_num-1)):
+        pbar_epoch.set_description('Evaluating ')
+
         batch = min(pc_num-n, param.batch)
         pcs = pc_lst[n:n+batch]
 
@@ -107,13 +115,14 @@ def evaluate(param, model, pc_lst,epoch,template_plydata, suffix, log_eval=True)
             Dataloader.save_pc_into_ply(template_plydata, out_pc, param.write_tmp_folder+"epoch%04d"%epoch+suffix+".ply")
             Dataloader.save_pc_into_ply(template_plydata, gt_pc, param.write_tmp_folder+suffix+".ply")
         n = n+batch
+        pbar_epoch.update(batch)
         
 
     geo_error_avg=geo_error_sum.item()/pc_num
     if(log_eval==True):
         param.logger.add_scalars('Evaluate', {'MSE Geo Error': geo_error_avg}, epoch)
-        print ("MSE Geo Error:", geo_error_avg)
-     
+        # print ("MSE Geo Error:", geo_error_avg)
+    pbar_epoch.close()
     return geo_error_avg
 
 def test(param, model, pc_lst, epoch, log_eval=True):
@@ -136,7 +145,7 @@ def test(param, model, pc_lst, epoch, log_eval=True):
     geo_error_avg=geo_error_sum.item()/pc_num
     if(log_eval==True):
         param.logger.add_scalars('Test', {'MSE Geo Error': geo_error_avg}, epoch)
-        print ("MSE Geo Error:", geo_error_avg)
+        # print ("MSE Geo Error:", geo_error_avg)
     return geo_error_avg
     
 
@@ -145,7 +154,7 @@ def train(param):
     np.random.seed(0)
     
     
-    print ("**********Initiate Netowrk**********")
+    # print ("**********Initiate Netowrk**********")
     model=graphAE.Model(param)
     
     model.cuda()
@@ -153,7 +162,7 @@ def train(param):
     scheduler=torch.optim.lr_scheduler.StepLR(optimizer, param.lr_decay_epoch_step,gamma=param.lr_decay)
 
     if(param.read_weight_path!=""):
-        print ("load "+param.read_weight_path)
+        # print ("load "+param.read_weight_path)
         checkpoint = torch.load(param.read_weight_path)
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -164,12 +173,13 @@ def train(param):
     
     
     
-    print ("**********Get training ply fn list from**********", param.pcs_train)
+    # print ("**********Get training ply fn list from**********", param.pcs_train)
     ##get ply file lst
     pc_lst_train = np.load(param.pcs_train)
     param.iter_per_epoch = int(len(pc_lst_train) / param.batch)
+    # param.iter_per_epoch = 100
     param.end_iter = param.iter_per_epoch * param.epoch
-    print ("**********Get evaluating ply fn list from**********", param.pcs_evaluate)
+    # print ("**********Get evaluating ply fn list from**********", param.pcs_evaluate)
     pc_lst_evaluate = np.load(param.pcs_evaluate)
     #print ("**********Get test ply fn list from**********", param.pcs_evaluate)
     #pc_lst_test = np.load(param.pcs_test)
@@ -184,28 +194,37 @@ def train(param):
 
     template_plydata = PlyData.read(param.template_ply_fn)
     
-    print ("**********Start Training**********")
+    # print ("**********Start Training**********")
     
     min_geo_error=123456
-    for i in range(param.start_epoch, param.epoch+1):
-
+    geo_error = 123456
+    pbar_total = tqdm(range(param.start_epoch, param.epoch+1), position=0, leave=True, unit=' epochs')
+    # for i in range(param.start_epoch, param.epoch+1):
+    for i in pbar_total:
+        pbar_total.set_description(
+            'Epoch {}/{} || Last Error: {:0.5f} || LR: {:.2E}'.format(i + 1, param.epoch+1, geo_error,
+                                                                    scheduler.get_last_lr()[0]))
+        # pdb.set_trace()
         if(((i%param.evaluate_epoch==0)and(i!=0)) or(i==param.epoch)):
-            print ("###Evaluate", "epoch", i, "##########################")
+            # print ("###Evaluate", "epoch", i, "##########################")
             with torch.no_grad():
                 torch.manual_seed(0)
                 np.random.seed(0)
                 geo_error = evaluate(param, model, pc_lst_evaluate,i,template_plydata, suffix="eval")    
                 if(geo_error<min_geo_error):
                     min_geo_error=geo_error
-                    print ("###Save Weight")
+                    # print ("###Save Weight")
                     path = param.write_weight_folder + "model_epoch%04d"%i +".weight"
                     torch.save({'model_state_dict': model.state_dict(),'optimizer_state_dict': optimizer.state_dict()}, path)
-                
+            pbar_total.set_description(
+                'Epoch {}/{} || Last Error: {:0.5f} || LR: {:.2E}'.format(i + 1, param.epoch + 1, geo_error,
+                                                                          scheduler.get_last_lr()[0]))
             
         torch.manual_seed(i)
         np.random.seed(i)
-
-        for j in range(param.iter_per_epoch):
+        pbar_epoch = tqdm(range(param.iter_per_epoch), position=1, leave=False, unit=' batches')
+        pbar_epoch.set_description('Training ')
+        for j in pbar_epoch:
             train_one_iteration(param, model, optimizer,pc_lst_train, i, j)
         
         scheduler.step()
@@ -213,7 +232,7 @@ def train(param):
         
 
 param=Param.Parameters()
-param.read_config("../../train/0223_GraphAE27_compare/40_conv_pool_FeaST.config")
+param.read_config("../../train/0223_GraphAE27_compare/10_conv_pool_GAT.config")
 
 train(param)
 
